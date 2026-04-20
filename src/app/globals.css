@@ -72,6 +72,16 @@ body {
   font-size: 1.05rem;
   line-height: 1.5;
   margin: 0 0 0.25rem 0;
+  position: relative;
+}
+
+.ProseMirror [data-node="named-list-title"].is-empty::before {
+  content: attr(data-placeholder);
+  color: #a1a1aa;
+  pointer-events: none;
+  position: absolute;
+  left: 0;
+  top: 0;
 }
 
 .ProseMirror [data-node="named-list"] > ul,

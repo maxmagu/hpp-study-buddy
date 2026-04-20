@@ -124,9 +124,18 @@ export function Editor({
   const editor = useEditor({
     immediatelyRender: false,
     extensions: [
-      StarterKit.configure({ codeBlock: false }),
+      StarterKit.configure({
+        codeBlock: false,
+        heading: { levels: [1, 2, 3] },
+      }),
       Placeholder.configure({
-        placeholder: "Start writing…",
+        placeholder: ({ node, hasAnchor }) => {
+          if (node.type.name === "namedListTitle") return "List name";
+          if (hasAnchor) return "Start writing…";
+          return "";
+        },
+        includeChildren: true,
+        showOnlyCurrent: false,
       }),
       Typography,
       TaskList,
@@ -407,13 +416,32 @@ export function Editor({
         <div className="truncate font-mono">{path}</div>
         <div className="flex items-center gap-3">
           {!recallMode && (
-            <button
-              type="button"
-              className="px-2 py-1 rounded hover:bg-zinc-100 dark:hover:bg-zinc-800"
-              onClick={() => editor?.commands.insertNamedList()}
-            >
-              + Named list
-            </button>
+            <>
+              {([1, 2, 3] as const).map((level) => (
+                <button
+                  key={level}
+                  type="button"
+                  className={cn(
+                    "px-2 py-1 rounded hover:bg-zinc-100 dark:hover:bg-zinc-800",
+                    editor?.isActive("heading", { level }) &&
+                      "bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-50",
+                  )}
+                  onClick={() =>
+                    editor?.chain().focus().toggleHeading({ level }).run()
+                  }
+                  title={`Heading ${level} (⌘/Ctrl + Alt + ${level})`}
+                >
+                  H{level}
+                </button>
+              ))}
+              <button
+                type="button"
+                className="px-2 py-1 rounded hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                onClick={() => editor?.commands.insertNamedList()}
+              >
+                + Named list
+              </button>
+            </>
           )}
           {recallMode && (
             <span className="text-indigo-600 dark:text-indigo-400">

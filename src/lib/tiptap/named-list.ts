@@ -1,4 +1,5 @@
 import { Node, mergeAttributes } from "@tiptap/core";
+import { TextSelection } from "@tiptap/pm/state";
 
 declare module "@tiptap/core" {
   interface Commands<ReturnType> {
@@ -77,26 +78,59 @@ export const NamedList = Node.create({
       0,
     ];
   },
+  addKeyboardShortcuts() {
+    return {
+      Backspace: () => {
+        const { state, view } = this.editor;
+        const { $from, empty } = state.selection;
+        if (!empty) return false;
+        if ($from.parentOffset !== 0) return false;
+        for (let d = $from.depth; d > 0; d--) {
+          const node = $from.node(d);
+          if (node.type.name !== "namedList") continue;
+          if (node.textContent !== "") return false;
+          const pos = $from.before(d);
+          view.dispatch(state.tr.delete(pos, pos + node.nodeSize));
+          return true;
+        }
+        return false;
+      },
+    };
+  },
   addCommands() {
     return {
       insertNamedList:
         () =>
-        ({ commands }) =>
-          commands.insertContent({
-            type: "namedList",
-            content: [
-              {
-                type: "namedListTitle",
-                content: [{ type: "text", text: "Untitled" }],
-              },
-              {
-                type: "bulletList",
-                content: [
-                  { type: "listItem", content: [{ type: "paragraph" }] },
-                ],
-              },
-            ],
-          }),
+        ({ chain }) =>
+          chain()
+            .insertContent({
+              type: "namedList",
+              content: [
+                { type: "namedListTitle" },
+                {
+                  type: "bulletList",
+                  content: [
+                    { type: "listItem", content: [{ type: "paragraph" }] },
+                  ],
+                },
+              ],
+            })
+            .command(({ tr, dispatch }) => {
+              if (!dispatch) return true;
+              const cursor = tr.selection.from;
+              let titlePos: number | null = null;
+              tr.doc.descendants((node, pos) => {
+                if (node.type.name === "namedListTitle" && pos < cursor) {
+                  titlePos = pos + 1;
+                }
+              });
+              if (titlePos !== null) {
+                tr.setSelection(TextSelection.create(tr.doc, titlePos));
+              }
+              return true;
+            })
+            .focus()
+            .run(),
     };
   },
 });
