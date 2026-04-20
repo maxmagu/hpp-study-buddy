@@ -1,14 +1,29 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { FileTree } from "@/components/file-tree";
 import { Editor } from "@/components/editor";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { cn } from "@/lib/utils";
 
+const LAST_PATH_KEY = "studybuddy:lastPath";
+
 export default function Home() {
   const [selectedPath, setSelectedPath] = useState<string | null>(null);
   const [recallMode, setRecallMode] = useState(false);
+  const restoredRef = useRef(false);
+
+  useEffect(() => {
+    const saved = window.localStorage.getItem(LAST_PATH_KEY);
+    if (saved) setSelectedPath(saved);
+    restoredRef.current = true;
+  }, []);
+
+  useEffect(() => {
+    if (!restoredRef.current) return;
+    if (selectedPath) window.localStorage.setItem(LAST_PATH_KEY, selectedPath);
+    else window.localStorage.removeItem(LAST_PATH_KEY);
+  }, [selectedPath]);
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -23,7 +38,7 @@ export default function Home() {
 
   return (
     <div className="flex flex-col h-screen w-full overflow-hidden">
-      <header className="flex items-center justify-between px-3 py-2 border-b border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/40">
+      <header className="shrink-0 h-10 flex items-center justify-between px-3 border-b border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/40">
         <span className="text-sm font-semibold">StuyBuddy</span>
         <div className="flex items-center gap-2">
           <button

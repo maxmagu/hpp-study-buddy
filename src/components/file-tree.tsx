@@ -267,7 +267,7 @@ export function FileTree({
         if (e.target === e.currentTarget) openMenu(e, { kind: "empty" });
       }}
     >
-      <div className="flex items-center justify-between px-3 py-2 border-b border-zinc-200 dark:border-zinc-800">
+      <div className="shrink-0 h-10 flex items-center justify-between px-3 border-b border-zinc-200 dark:border-zinc-800">
         <span className="text-xs font-medium text-zinc-500 uppercase tracking-wide">
           Files
         </span>

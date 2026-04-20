@@ -94,6 +94,7 @@ export function Editor({
   const currentPathRef = useRef<string | null>(null);
 
   const flushRef = useRef<() => Promise<void>>(async () => {});
+  const lastSavedJsonRef = useRef<string | null>(null);
 
   const containerRef = useRef<HTMLDivElement | null>(null);
   const activeListRef = useRef<HTMLElement | null>(null);
@@ -144,9 +145,12 @@ export function Editor({
     },
     onUpdate: ({ editor }) => {
       if (applyingContentRef.current) return;
-      if (recallMode) return;
+      if (recallModeRef.current) return;
       if (!currentPathRef.current) return;
-      pendingRef.current = editor.getJSON();
+      const json = editor.getJSON();
+      const str = JSON.stringify(json);
+      if (str === lastSavedJsonRef.current) return;
+      pendingRef.current = json;
       setStatus("dirty");
       if (saveTimerRef.current) window.clearTimeout(saveTimerRef.current);
       saveTimerRef.current = window.setTimeout(() => {
@@ -162,8 +166,15 @@ export function Editor({
     const p = currentPathRef.current;
     const content = pendingRef.current;
     if (!p || !content) return;
+    const json = JSON.stringify(content);
+    if (json === lastSavedJsonRef.current) {
+      pendingRef.current = null;
+      setStatus("saved");
+      return;
+    }
     setStatus("saving");
     const ok = await saveFile(p, content);
+    if (ok) lastSavedJsonRef.current = json;
     if (pendingRef.current === content) pendingRef.current = null;
     setStatus(ok ? "saved" : "error");
   }, []);
@@ -203,6 +214,7 @@ export function Editor({
       applyingContentRef.current = true;
       editor.commands.setContent(EMPTY_DOC, { emitUpdate: false });
       applyingContentRef.current = false;
+      lastSavedJsonRef.current = JSON.stringify(EMPTY_DOC);
       return;
     }
 
@@ -216,9 +228,11 @@ export function Editor({
       .then((r) => (r.ok ? r.json() : Promise.reject(new Error(r.statusText))))
       .then(({ content }) => {
         if (cancelled) return;
+        const loaded = content ?? EMPTY_DOC;
         applyingContentRef.current = true;
-        editor.commands.setContent(content ?? EMPTY_DOC, { emitUpdate: false });
+        editor.commands.setContent(loaded, { emitUpdate: false });
         applyingContentRef.current = false;
+        lastSavedJsonRef.current = JSON.stringify(loaded);
         setStatus("saved");
         if (recallModeRef.current && containerRef.current) {
           coverAllLists(containerRef.current);
@@ -389,7 +403,7 @@ export function Editor({
 
   return (
     <div className="flex-1 flex flex-col min-h-0 relative">
-      <div className="flex items-center justify-between px-6 py-2 border-b border-zinc-200 dark:border-zinc-800 text-xs text-zinc-500 dark:text-zinc-400">
+      <div className="shrink-0 h-10 flex items-center justify-between px-6 border-b border-zinc-200 dark:border-zinc-800 text-xs text-zinc-500 dark:text-zinc-400">
         <div className="truncate font-mono">{path}</div>
         <div className="flex items-center gap-3">
           {!recallMode && (
