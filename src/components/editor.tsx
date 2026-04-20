@@ -101,6 +101,20 @@ export function Editor({
   const applyingContentRef = useRef(false);
   const [revealed, setRevealed] = useState(0);
   const [activeListKey, setActiveListKey] = useState(0);
+  const [prevPath, setPrevPath] = useState<string | null>(path);
+  const [prevRecallMode, setPrevRecallMode] = useState(recallMode);
+
+  if (prevPath !== path) {
+    setPrevPath(path);
+    setRevealed(0);
+    setActiveListKey((k) => k + 1);
+    setStatus(path ? "loading" : "idle");
+  }
+
+  if (prevRecallMode !== recallMode) {
+    setPrevRecallMode(recallMode);
+    if (!recallMode) setRevealed(0);
+  }
 
   useEffect(() => {
     recallModeRef.current = recallMode;
@@ -182,8 +196,6 @@ export function Editor({
 
     currentPathRef.current = path;
     activeListRef.current = null;
-    setRevealed(0);
-    setActiveListKey((k) => k + 1);
 
     editor.setEditable(false);
 
@@ -191,11 +203,9 @@ export function Editor({
       applyingContentRef.current = true;
       editor.commands.setContent(EMPTY_DOC, { emitUpdate: false });
       applyingContentRef.current = false;
-      setStatus("idle");
       return;
     }
 
-    setStatus("loading");
     let cancelled = false;
     const parts = path
       .split("/")
@@ -251,7 +261,6 @@ export function Editor({
     } else {
       uncoverAll(root);
       activeListRef.current = null;
-      setRevealed(0);
     }
   }, [recallMode]);
 
