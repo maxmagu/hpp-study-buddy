@@ -9,6 +9,7 @@ import TaskItem from "@tiptap/extension-task-item";
 import CodeBlockLowlight from "@tiptap/extension-code-block-lowlight";
 import { common, createLowlight } from "lowlight";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { NamedList, NamedListTitle } from "@/lib/tiptap/named-list";
 import { cn } from "@/lib/utils";
 
 type Status = "idle" | "loading" | "dirty" | "saving" | "saved" | "error";
@@ -115,6 +116,8 @@ export function Editor({
       TaskList,
       TaskItem.configure({ nested: true }),
       CodeBlockLowlight.configure({ lowlight }),
+      NamedList,
+      NamedListTitle,
     ],
     editorProps: {
       attributes: {
@@ -254,6 +257,32 @@ export function Editor({
     });
   }, [revealed, activeListKey, recallMode]);
 
+  const selectList = useCallback(
+    (list: HTMLElement, opts: { scroll?: boolean } = {}) => {
+      const prev = activeListRef.current;
+      if (prev && prev !== list) {
+        (prev.closest("[data-node='named-list']") ?? prev).classList.remove(
+          "recall-active",
+        );
+        getDirectListItems(prev).forEach((li) =>
+          li.classList.add("recall-covered"),
+        );
+      }
+      (list.closest("[data-node='named-list']") ?? list).classList.add(
+        "recall-active",
+      );
+      activeListRef.current = list;
+      setRevealed(0);
+      setActiveListKey((k) => k + 1);
+      if (opts.scroll) {
+        (list.closest("[data-node='named-list']") ?? list).scrollIntoView({
+          block: "nearest",
+        });
+      }
+    },
+    [],
+  );
+
   // Click on a list in recall mode selects it as the active list.
   useEffect(() => {
     if (!recallMode) return;
@@ -263,37 +292,57 @@ export function Editor({
     function onClick(e: MouseEvent) {
       const target = e.target as Element | null;
       if (!target) return;
-      const list = target.closest("ul, ol");
-      if (!isListElement(list)) return;
       if (!root) return;
-      if (!root.contains(list)) return;
 
-      const prev = activeListRef.current;
-      if (prev && prev !== list) {
-        prev.classList.remove("recall-active");
-        // Re-cover the previous list's items so it returns to hidden state.
-        getDirectListItems(prev).forEach((li) =>
-          li.classList.add("recall-covered"),
-        );
+      let list: Element | null = null;
+      const title = target.closest("[data-node='named-list-title']");
+      if (title) {
+        const wrapper = title.closest("[data-node='named-list']");
+        list = wrapper?.querySelector(":scope > ul, :scope > ol") ?? null;
+      } else {
+        list = target.closest("ul, ol");
       }
-
-      list.classList.add("recall-active");
-      activeListRef.current = list;
-      setRevealed(0);
-      setActiveListKey((k) => k + 1);
+      if (!isListElement(list)) return;
+      if (!root.contains(list)) return;
+      selectList(list);
       e.preventDefault();
     }
 
     root.addEventListener("click", onClick);
     return () => root.removeEventListener("click", onClick);
-  }, [recallMode]);
+  }, [recallMode, selectList]);
 
-  // Keyboard shortcuts in recall mode: Space reveals next, X resets.
+  // Keyboard shortcuts in recall mode: Space reveals, X resets, ↑/↓ switch lists.
   useEffect(() => {
     if (!recallMode) return;
 
     function onKey(e: KeyboardEvent) {
       if (e.metaKey || e.ctrlKey || e.altKey) return;
+
+      if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+        const root = containerRef.current;
+        if (!root) return;
+        const lists = Array.from(
+          root.querySelectorAll<HTMLElement>("ul, ol"),
+        ).filter(
+          (l) =>
+            l.dataset.type !== "taskList" &&
+            (l.parentElement?.tagName ?? "") !== "LI",
+        );
+        if (lists.length === 0) return;
+        const current = activeListRef.current;
+        const currentIdx = current ? lists.indexOf(current) : -1;
+        let nextIdx: number;
+        if (e.key === "ArrowDown") {
+          nextIdx = currentIdx < 0 ? 0 : Math.min(currentIdx + 1, lists.length - 1);
+        } else {
+          nextIdx = currentIdx < 0 ? lists.length - 1 : Math.max(currentIdx - 1, 0);
+        }
+        if (nextIdx !== currentIdx) selectList(lists[nextIdx], { scroll: true });
+        e.preventDefault();
+        return;
+      }
+
       const list = activeListRef.current;
       if (!list) return;
 
@@ -309,7 +358,7 @@ export function Editor({
 
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [recallMode]);
+  }, [recallMode, selectList]);
 
   if (!path) {
     return (
@@ -324,9 +373,18 @@ export function Editor({
       <div className="flex items-center justify-between px-6 py-2 border-b border-zinc-200 dark:border-zinc-800 text-xs text-zinc-500 dark:text-zinc-400">
         <div className="truncate font-mono">{path}</div>
         <div className="flex items-center gap-3">
+          {!recallMode && (
+            <button
+              type="button"
+              className="px-2 py-1 rounded hover:bg-zinc-100 dark:hover:bg-zinc-800"
+              onClick={() => editor?.commands.insertNamedList()}
+            >
+              + Named list
+            </button>
+          )}
           {recallMode && (
             <span className="text-indigo-600 dark:text-indigo-400">
-              Recall · click a list, Space to reveal, X to reset
+              Recall · ↑↓ pick list · Space reveal · X reset
             </span>
           )}
           <span

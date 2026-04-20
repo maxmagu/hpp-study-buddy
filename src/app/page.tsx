@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { FileTree } from "@/components/file-tree";
 import { Editor } from "@/components/editor";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -9,6 +9,17 @@ import { cn } from "@/lib/utils";
 export default function Home() {
   const [selectedPath, setSelectedPath] = useState<string | null>(null);
   const [recallMode, setRecallMode] = useState(false);
+
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if ((e.metaKey || e.ctrlKey) && e.key === ".") {
+        setRecallMode((v) => !v);
+        e.preventDefault();
+      }
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
 
   return (
     <div className="flex flex-col h-screen w-full overflow-hidden">
@@ -25,6 +36,7 @@ export default function Home() {
                 : "border-zinc-300 dark:border-zinc-700 hover:bg-zinc-100 dark:hover:bg-zinc-800",
             )}
             aria-pressed={recallMode}
+            title="Toggle recall (⌘/Ctrl + .)"
           >
             {recallMode ? "Recall: on" : "Recall"}
           </button>

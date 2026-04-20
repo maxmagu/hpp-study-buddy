@@ -61,6 +61,28 @@ body {
   min-width: 0;
 }
 
+/* ---------- Named list ---------- */
+
+.ProseMirror [data-node="named-list"] {
+  margin: 0.75rem 0;
+}
+
+.ProseMirror [data-node="named-list-title"] {
+  font-weight: 600;
+  font-size: 1.05rem;
+  line-height: 1.5;
+  margin: 0 0 0.25rem 0;
+}
+
+.ProseMirror [data-node="named-list"] > ul,
+.ProseMirror [data-node="named-list"] > ol {
+  margin-top: 0;
+}
+
+.recall-mode [data-node="named-list-title"] {
+  cursor: pointer;
+}
+
 /* ---------- Recall mode ---------- */
 
 .recall-mode .ProseMirror {
