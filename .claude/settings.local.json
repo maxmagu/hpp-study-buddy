@@ -1,7 +1,23 @@
 {
   "permissions": {
     "allow": [
-      "Bash(npx --yes create-next-app@latest . --typescript --tailwind --app --src-dir --eslint --no-turbopack --use-npm --import-alias \"@/*\" --yes)"
+      "Bash(npx --yes create-next-app@latest . --typescript --tailwind --app --src-dir --eslint --no-turbopack --use-npm --import-alias \"@/*\" --yes)",
+      "Bash(lsof -iTCP -sTCP:LISTEN -P -n)",
+      "Bash(curl -sS -i http://localhost:3000/api/tree)",
+      "mcp__playwright__browser_navigate",
+      "mcp__playwright__browser_snapshot",
+      "mcp__playwright__browser_console_messages",
+      "mcp__playwright__browser_network_requests",
+      "Bash(curl -sS http://localhost:3000/)",
+      "Bash(curl -sS -i \"http://localhost:3000/api/file/welcome.json\")",
+      "Bash(curl -sS -o /dev/null -w \"HTTP %{http_code} in %{time_total}s\\\\n\" http://localhost:3000/)",
+      "mcp__mcp-server-context7__resolve-library-id",
+      "mcp__mcp-server-context7__query-docs",
+      "Bash(curl -sS -o /dev/null -w \"GET / : %{http_code} %{time_total}s\\\\n\" http://localhost:3000/)",
+      "Bash(curl -sS -o /dev/null -w \"GET /api/tree : %{http_code} %{time_total}s\\\\n\" http://localhost:3000/api/tree)",
+      "mcp__playwright__browser_click",
+      "mcp__playwright__browser_close",
+      "Bash(git add *)"
     ]
   }
 }
