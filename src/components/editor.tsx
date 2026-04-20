@@ -98,6 +98,7 @@ export function Editor({
   const containerRef = useRef<HTMLDivElement | null>(null);
   const activeListRef = useRef<HTMLElement | null>(null);
   const recallModeRef = useRef(recallMode);
+  const applyingContentRef = useRef(false);
   const [revealed, setRevealed] = useState(0);
   const [activeListKey, setActiveListKey] = useState(0);
 
@@ -128,7 +129,9 @@ export function Editor({
       },
     },
     onUpdate: ({ editor }) => {
+      if (applyingContentRef.current) return;
       if (recallMode) return;
+      if (!currentPathRef.current) return;
       pendingRef.current = editor.getJSON();
       setStatus("dirty");
       if (saveTimerRef.current) window.clearTimeout(saveTimerRef.current);
@@ -157,8 +160,9 @@ export function Editor({
 
   useEffect(() => {
     if (!editor) return;
-    editor.setEditable(!recallMode);
-  }, [editor, recallMode]);
+    const loading = status === "loading";
+    editor.setEditable(!(recallMode || loading));
+  }, [editor, recallMode, status]);
 
   useEffect(() => {
     if (!editor) return;
@@ -181,8 +185,12 @@ export function Editor({
     setRevealed(0);
     setActiveListKey((k) => k + 1);
 
+    editor.setEditable(false);
+
     if (!path) {
+      applyingContentRef.current = true;
       editor.commands.setContent(EMPTY_DOC, { emitUpdate: false });
+      applyingContentRef.current = false;
       setStatus("idle");
       return;
     }
@@ -198,7 +206,9 @@ export function Editor({
       .then((r) => (r.ok ? r.json() : Promise.reject(new Error(r.statusText))))
       .then(({ content }) => {
         if (cancelled) return;
+        applyingContentRef.current = true;
         editor.commands.setContent(content ?? EMPTY_DOC, { emitUpdate: false });
+        applyingContentRef.current = false;
         setStatus("saved");
         if (recallModeRef.current && containerRef.current) {
           coverAllLists(containerRef.current);
