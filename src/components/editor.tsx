@@ -9,7 +9,6 @@ import TaskItem from "@tiptap/extension-task-item";
 import CodeBlockLowlight from "@tiptap/extension-code-block-lowlight";
 import { common, createLowlight } from "lowlight";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { NamedList, NamedListTitle } from "@/lib/tiptap/named-list";
 import { cn } from "@/lib/utils";
 
 type Status = "idle" | "loading" | "dirty" | "saving" | "saved" | "error";
@@ -56,6 +55,20 @@ function isListElement(el: Element | null): el is HTMLUListElement | HTMLOListEl
   if (tag !== "UL" && tag !== "OL") return false;
   if ((el as HTMLElement).dataset.type === "taskList") return false;
   return true;
+}
+
+function isHeadingElement(el: Element | null): el is HTMLHeadingElement {
+  return !!el && /^H[1-3]$/.test(el.tagName);
+}
+
+function pairedHeading(list: Element): HTMLHeadingElement | null {
+  const prev = list.previousElementSibling;
+  return isHeadingElement(prev) ? prev : null;
+}
+
+function listAfterHeading(heading: Element): HTMLElement | null {
+  const next = heading.nextElementSibling;
+  return isListElement(next) ? (next as HTMLElement) : null;
 }
 
 function getDirectListItems(list: Element): HTMLElement[] {
@@ -129,20 +142,12 @@ export function Editor({
         heading: { levels: [1, 2, 3] },
       }),
       Placeholder.configure({
-        placeholder: ({ node, hasAnchor }) => {
-          if (node.type.name === "namedListTitle") return "List name";
-          if (hasAnchor) return "Start writing…";
-          return "";
-        },
-        includeChildren: true,
-        showOnlyCurrent: false,
+        placeholder: "Start writing…",
       }),
       Typography,
       TaskList,
       TaskItem.configure({ nested: true }),
       CodeBlockLowlight.configure({ lowlight }),
-      NamedList,
-      NamedListTitle,
     ],
     editorProps: {
       attributes: {
@@ -303,23 +308,20 @@ export function Editor({
     (list: HTMLElement, opts: { scroll?: boolean } = {}) => {
       const prev = activeListRef.current;
       if (prev && prev !== list) {
-        (prev.closest("[data-node='named-list']") ?? prev).classList.remove(
-          "recall-active",
-        );
+        prev.classList.remove("recall-active");
+        pairedHeading(prev)?.classList.remove("recall-active");
         getDirectListItems(prev).forEach((li) =>
           li.classList.add("recall-covered"),
         );
       }
-      (list.closest("[data-node='named-list']") ?? list).classList.add(
-        "recall-active",
-      );
+      list.classList.add("recall-active");
+      const heading = pairedHeading(list);
+      heading?.classList.add("recall-active");
       activeListRef.current = list;
       setRevealed(0);
       setActiveListKey((k) => k + 1);
       if (opts.scroll) {
-        (list.closest("[data-node='named-list']") ?? list).scrollIntoView({
-          block: "nearest",
-        });
+        (heading ?? list).scrollIntoView({ block: "nearest" });
       }
     },
     [],
@@ -333,14 +335,12 @@ export function Editor({
 
     function onClick(e: MouseEvent) {
       const target = e.target as Element | null;
-      if (!target) return;
-      if (!root) return;
+      if (!target || !root) return;
 
       let list: Element | null = null;
-      const title = target.closest("[data-node='named-list-title']");
-      if (title) {
-        const wrapper = title.closest("[data-node='named-list']");
-        list = wrapper?.querySelector(":scope > ul, :scope > ol") ?? null;
+      const heading = target.closest("h1, h2, h3");
+      if (heading && root.contains(heading)) {
+        list = listAfterHeading(heading);
       } else {
         list = target.closest("ul, ol");
       }
@@ -436,10 +436,31 @@ export function Editor({
               ))}
               <button
                 type="button"
-                className="px-2 py-1 rounded hover:bg-zinc-100 dark:hover:bg-zinc-800"
-                onClick={() => editor?.commands.insertNamedList()}
+                className={cn(
+                  "px-2 py-1 rounded hover:bg-zinc-100 dark:hover:bg-zinc-800",
+                  editor?.isActive("bulletList") &&
+                    "bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-50",
+                )}
+                onClick={() =>
+                  editor?.chain().focus().toggleBulletList().run()
+                }
+                title="Bulleted list (⌘/Ctrl + Shift + 8)"
               >
-                + Named list
+                • List
+              </button>
+              <button
+                type="button"
+                className={cn(
+                  "px-2 py-1 rounded hover:bg-zinc-100 dark:hover:bg-zinc-800",
+                  editor?.isActive("orderedList") &&
+                    "bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-50",
+                )}
+                onClick={() =>
+                  editor?.chain().focus().toggleOrderedList().run()
+                }
+                title="Numbered list (⌘/Ctrl + Shift + 7)"
+              >
+                1. List
               </button>
             </>
           )}

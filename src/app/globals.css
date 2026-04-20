@@ -61,39 +61,16 @@ body {
   min-width: 0;
 }
 
-/* ---------- Named list ---------- */
+/* ---------- Recall mode ---------- */
 
-.ProseMirror [data-node="named-list"] {
-  margin: 0.75rem 0;
-}
-
-.ProseMirror [data-node="named-list-title"] {
-  font-weight: 600;
-  font-size: 1.05rem;
-  line-height: 1.5;
-  margin: 0 0 0.25rem 0;
-  position: relative;
-}
-
-.ProseMirror [data-node="named-list-title"].is-empty::before {
-  content: attr(data-placeholder);
-  color: #a1a1aa;
-  pointer-events: none;
-  position: absolute;
-  left: 0;
-  top: 0;
-}
-
-.ProseMirror [data-node="named-list"] > ul,
-.ProseMirror [data-node="named-list"] > ol {
-  margin-top: 0;
-}
-
-.recall-mode [data-node="named-list-title"] {
+.recall-mode .ProseMirror h1:has(+ ul:not([data-type="taskList"])),
+.recall-mode .ProseMirror h1:has(+ ol),
+.recall-mode .ProseMirror h2:has(+ ul:not([data-type="taskList"])),
+.recall-mode .ProseMirror h2:has(+ ol),
+.recall-mode .ProseMirror h3:has(+ ul:not([data-type="taskList"])),
+.recall-mode .ProseMirror h3:has(+ ol) {
   cursor: pointer;
 }
-
-/* ---------- Recall mode ---------- */
 
 .recall-mode .ProseMirror {
   caret-color: transparent;
