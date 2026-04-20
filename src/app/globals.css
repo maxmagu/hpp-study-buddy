@@ -61,191 +61,44 @@ body {
   min-width: 0;
 }
 
-/* ---------- Toggle block ---------- */
+/* ---------- Recall mode ---------- */
 
-.toggle-block {
-  margin: 0.5rem 0;
+.recall-mode .ProseMirror {
+  caret-color: transparent;
 }
 
-.toggle-row {
-  display: flex;
-  align-items: flex-start;
-  gap: 0.25rem;
-}
-
-.toggle-arrow {
-  flex-shrink: 0;
-  width: 1.25rem;
-  height: 1.5rem;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  color: #71717a;
-  border: none;
-  background: transparent;
+.recall-mode ul,
+.recall-mode ol {
   cursor: pointer;
-  font-size: 0.7rem;
+}
+
+.recall-mode ul[data-type="taskList"] {
+  cursor: default;
+}
+
+.recall-active {
+  outline: 2px solid #6366f1;
+  outline-offset: 4px;
   border-radius: 0.25rem;
-  transition: transform 120ms ease, background 120ms ease;
-  user-select: none;
 }
 
-.toggle-arrow:hover {
-  background: rgba(0, 0, 0, 0.05);
+.recall-covered {
+  position: relative;
 }
 
-.dark .toggle-arrow:hover {
-  background: rgba(255, 255, 255, 0.08);
+.recall-covered > * {
+  visibility: hidden;
 }
 
-.toggle-block[data-open="true"] .toggle-arrow {
-  transform: rotate(90deg);
-}
-
-.toggle-inner {
-  flex: 1;
-  min-width: 0;
-}
-
-.toggle-inner > [data-node="toggle-summary"] {
-  margin: 0;
-}
-
-.toggle-inner > [data-node="toggle-content"] {
-  margin-top: 0.25rem;
-  padding-left: 0.25rem;
-  border-left: 1px solid rgba(0, 0, 0, 0.08);
-}
-
-.dark .toggle-inner > [data-node="toggle-content"] {
-  border-left-color: rgba(255, 255, 255, 0.1);
-}
-
-.toggle-block[data-open="false"] .toggle-inner > [data-node="toggle-content"] {
-  display: none;
-}
-
-/* ---------- Recall list ---------- */
-
-.recall-list {
-  margin: 1rem 0;
-  padding: 0.5rem;
-  border: 1px solid rgba(0, 0, 0, 0.08);
-  border-radius: 0.5rem;
-  background: rgba(0, 0, 0, 0.015);
-}
-
-.dark .recall-list {
-  border-color: rgba(255, 255, 255, 0.08);
-  background: rgba(255, 255, 255, 0.02);
-}
-
-.recall-list[data-mode="study"] {
-  outline: 2px solid transparent;
-  outline-offset: 2px;
-}
-
-.recall-list[data-mode="study"]:focus-visible {
-  outline-color: #6366f1;
-}
-
-.recall-toolbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.5rem;
-  padding: 0.25rem 0.5rem;
-  margin-bottom: 0.5rem;
-  font-size: 0.75rem;
-  color: #71717a;
-}
-
-.recall-tabs {
-  display: inline-flex;
-  gap: 2px;
-  padding: 2px;
-  background: rgba(0, 0, 0, 0.05);
-  border-radius: 0.375rem;
-}
-
-.dark .recall-tabs {
-  background: rgba(255, 255, 255, 0.06);
-}
-
-.recall-tabs button {
-  padding: 0.125rem 0.625rem;
-  border: none;
+.recall-covered::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0.25em;
+  width: 14rem;
+  height: 1.1em;
+  background: currentColor;
+  opacity: 0.85;
   border-radius: 0.25rem;
-  background: transparent;
-  color: #52525b;
-  cursor: pointer;
-  font-size: 0.75rem;
-}
-
-.dark .recall-tabs button {
-  color: #a1a1aa;
-}
-
-.recall-tabs button[data-active="true"] {
-  background: white;
-  color: #18181b;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
-}
-
-.dark .recall-tabs button[data-active="true"] {
-  background: #27272a;
-  color: #fafafa;
-}
-
-.recall-progress {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.recall-progress button {
-  padding: 0.125rem 0.5rem;
-  border: 1px solid rgba(0, 0, 0, 0.1);
-  border-radius: 0.25rem;
-  background: transparent;
-  cursor: pointer;
-  font-size: 0.7rem;
-}
-
-.dark .recall-progress button {
-  border-color: rgba(255, 255, 255, 0.12);
-  color: #e4e4e7;
-}
-
-.recall-hint {
-  font-size: 0.7rem;
-  color: #a1a1aa;
-}
-
-.recall-items {
-  list-style: decimal;
-  padding-left: 1.75rem;
-  margin: 0;
-}
-
-.recall-item {
-  padding: 0.25rem 0;
-  transition:
-    filter 180ms ease,
-    opacity 180ms ease;
-}
-
-.recall-list[data-mode="study"] .recall-item {
-  filter: blur(6px);
-  opacity: 0.45;
-  user-select: none;
-}
-
-.recall-list[data-mode="study"] .recall-item.recall-revealed {
-  filter: none;
-  opacity: 1;
-}
-
-.recall-list[data-mode="study"] .ProseMirror-trailingBreak {
-  display: none;
+  pointer-events: none;
 }

@@ -9,12 +9,6 @@ import TaskItem from "@tiptap/extension-task-item";
 import CodeBlockLowlight from "@tiptap/extension-code-block-lowlight";
 import { common, createLowlight } from "lowlight";
 import { useCallback, useEffect, useRef, useState } from "react";
-import {
-  Toggle,
-  ToggleSummary,
-  ToggleContent,
-} from "@/lib/tiptap/toggle";
-import { RecallList, RecallItem } from "@/lib/tiptap/recall-list";
 import { cn } from "@/lib/utils";
 
 type Status = "idle" | "loading" | "dirty" | "saving" | "saved" | "error";
@@ -55,14 +49,43 @@ async function saveFile(p: string, content: JSONContent): Promise<boolean> {
   return res.ok;
 }
 
+function isListElement(el: Element | null): el is HTMLUListElement | HTMLOListElement {
+  if (!el) return false;
+  const tag = el.tagName;
+  if (tag !== "UL" && tag !== "OL") return false;
+  if ((el as HTMLElement).dataset.type === "taskList") return false;
+  return true;
+}
+
+function getDirectListItems(list: Element): HTMLElement[] {
+  return Array.from(list.children).filter(
+    (el) => el.tagName === "LI",
+  ) as HTMLElement[];
+}
+
+function coverAllLists(root: HTMLElement) {
+  const lists = root.querySelectorAll<HTMLElement>("ul, ol");
+  lists.forEach((list) => {
+    if (list.dataset.type === "taskList") return;
+    getDirectListItems(list).forEach((li) => li.classList.add("recall-covered"));
+  });
+}
+
+function uncoverAll(root: HTMLElement) {
+  root
+    .querySelectorAll<HTMLElement>(".recall-covered")
+    .forEach((li) => li.classList.remove("recall-covered"));
+  root
+    .querySelectorAll<HTMLElement>(".recall-active")
+    .forEach((el) => el.classList.remove("recall-active"));
+}
+
 export function Editor({
   path,
-  onInsertToggle,
-  onInsertRecall,
+  recallMode,
 }: {
   path: string | null;
-  onInsertToggle?: () => void;
-  onInsertRecall?: () => void;
+  recallMode: boolean;
 }) {
   const [status, setStatus] = useState<Status>("idle");
   const saveTimerRef = useRef<number | null>(null);
@@ -70,6 +93,16 @@ export function Editor({
   const currentPathRef = useRef<string | null>(null);
 
   const flushRef = useRef<() => Promise<void>>(async () => {});
+
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const activeListRef = useRef<HTMLElement | null>(null);
+  const recallModeRef = useRef(recallMode);
+  const [revealed, setRevealed] = useState(0);
+  const [activeListKey, setActiveListKey] = useState(0);
+
+  useEffect(() => {
+    recallModeRef.current = recallMode;
+  }, [recallMode]);
 
   const editor = useEditor({
     immediatelyRender: false,
@@ -82,11 +115,6 @@ export function Editor({
       TaskList,
       TaskItem.configure({ nested: true }),
       CodeBlockLowlight.configure({ lowlight }),
-      Toggle,
-      ToggleSummary,
-      ToggleContent,
-      RecallList,
-      RecallItem,
     ],
     editorProps: {
       attributes: {
@@ -97,6 +125,7 @@ export function Editor({
       },
     },
     onUpdate: ({ editor }) => {
+      if (recallMode) return;
       pendingRef.current = editor.getJSON();
       setStatus("dirty");
       if (saveTimerRef.current) window.clearTimeout(saveTimerRef.current);
@@ -125,6 +154,11 @@ export function Editor({
 
   useEffect(() => {
     if (!editor) return;
+    editor.setEditable(!recallMode);
+  }, [editor, recallMode]);
+
+  useEffect(() => {
+    if (!editor) return;
 
     const prevPath = currentPathRef.current;
     const prevPending = pendingRef.current;
@@ -140,6 +174,9 @@ export function Editor({
     }
 
     currentPathRef.current = path;
+    activeListRef.current = null;
+    setRevealed(0);
+    setActiveListKey((k) => k + 1);
 
     if (!path) {
       editor.commands.setContent(EMPTY_DOC, { emitUpdate: false });
@@ -160,6 +197,9 @@ export function Editor({
         if (cancelled) return;
         editor.commands.setContent(content ?? EMPTY_DOC, { emitUpdate: false });
         setStatus("saved");
+        if (recallModeRef.current && containerRef.current) {
+          coverAllLists(containerRef.current);
+        }
       })
       .catch(() => {
         if (!cancelled) setStatus("error");
@@ -175,7 +215,6 @@ export function Editor({
       const p = currentPathRef.current;
       const content = pendingRef.current;
       if (!p || !content) return;
-      // sendBeacon for best-effort flush on close
       const parts = p
         .split("/")
         .filter(Boolean)
@@ -190,6 +229,88 @@ export function Editor({
     return () => window.removeEventListener("beforeunload", onBeforeUnload);
   }, []);
 
+  // Cover or uncover all lists when recall mode toggles.
+  useEffect(() => {
+    const root = containerRef.current;
+    if (!root) return;
+    if (recallMode) {
+      coverAllLists(root);
+    } else {
+      uncoverAll(root);
+      activeListRef.current = null;
+      setRevealed(0);
+    }
+  }, [recallMode]);
+
+  // Apply reveals to the active list only.
+  useEffect(() => {
+    if (!recallMode) return;
+    const list = activeListRef.current;
+    if (!list) return;
+    const items = getDirectListItems(list);
+    items.forEach((li, i) => {
+      if (i < revealed) li.classList.remove("recall-covered");
+      else li.classList.add("recall-covered");
+    });
+  }, [revealed, activeListKey, recallMode]);
+
+  // Click on a list in recall mode selects it as the active list.
+  useEffect(() => {
+    if (!recallMode) return;
+    const root = containerRef.current;
+    if (!root) return;
+
+    function onClick(e: MouseEvent) {
+      const target = e.target as Element | null;
+      if (!target) return;
+      const list = target.closest("ul, ol");
+      if (!isListElement(list)) return;
+      if (!root) return;
+      if (!root.contains(list)) return;
+
+      const prev = activeListRef.current;
+      if (prev && prev !== list) {
+        prev.classList.remove("recall-active");
+        // Re-cover the previous list's items so it returns to hidden state.
+        getDirectListItems(prev).forEach((li) =>
+          li.classList.add("recall-covered"),
+        );
+      }
+
+      list.classList.add("recall-active");
+      activeListRef.current = list;
+      setRevealed(0);
+      setActiveListKey((k) => k + 1);
+      e.preventDefault();
+    }
+
+    root.addEventListener("click", onClick);
+    return () => root.removeEventListener("click", onClick);
+  }, [recallMode]);
+
+  // Keyboard shortcuts in recall mode: Space reveals next, X resets.
+  useEffect(() => {
+    if (!recallMode) return;
+
+    function onKey(e: KeyboardEvent) {
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      const list = activeListRef.current;
+      if (!list) return;
+
+      if (e.key === " ") {
+        const items = getDirectListItems(list);
+        setRevealed((r) => Math.min(r + 1, items.length));
+        e.preventDefault();
+      } else if (e.key === "x" || e.key === "X") {
+        setRevealed(0);
+        e.preventDefault();
+      }
+    }
+
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [recallMode]);
+
   if (!path) {
     return (
       <div className="flex-1 flex items-center justify-center text-zinc-500 dark:text-zinc-500 text-sm">
@@ -203,26 +324,11 @@ export function Editor({
       <div className="flex items-center justify-between px-6 py-2 border-b border-zinc-200 dark:border-zinc-800 text-xs text-zinc-500 dark:text-zinc-400">
         <div className="truncate font-mono">{path}</div>
         <div className="flex items-center gap-3">
-          <button
-            type="button"
-            className="px-2 py-1 rounded hover:bg-zinc-100 dark:hover:bg-zinc-800"
-            onClick={() => {
-              editor?.commands.insertToggle();
-              onInsertToggle?.();
-            }}
-          >
-            + Toggle
-          </button>
-          <button
-            type="button"
-            className="px-2 py-1 rounded hover:bg-zinc-100 dark:hover:bg-zinc-800"
-            onClick={() => {
-              editor?.commands.insertRecallList();
-              onInsertRecall?.();
-            }}
-          >
-            + Recall
-          </button>
+          {recallMode && (
+            <span className="text-indigo-600 dark:text-indigo-400">
+              Recall · click a list, Space to reveal, X to reset
+            </span>
+          )}
           <span
             className={cn(
               "tabular-nums",
@@ -234,7 +340,10 @@ export function Editor({
           </span>
         </div>
       </div>
-      <div className="flex-1 overflow-auto">
+      <div
+        ref={containerRef}
+        className={cn("flex-1 overflow-auto", recallMode && "recall-mode")}
+      >
         <EditorContent editor={editor} />
       </div>
     </div>
