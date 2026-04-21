@@ -40,9 +40,13 @@ export async function readTree(dir = CONTENT_ROOT, rel = ""): Promise<TreeNode[]
       nodes.push({ type: "file", name: e.name, path: childRel });
     }
   }
+  const collator = new Intl.Collator(undefined, {
+    numeric: true,
+    sensitivity: "base",
+  });
   nodes.sort((a, b) => {
     if (a.type !== b.type) return a.type === "dir" ? -1 : 1;
-    return a.name.localeCompare(b.name);
+    return collator.compare(a.name, b.name);
   });
   return nodes;
 }
