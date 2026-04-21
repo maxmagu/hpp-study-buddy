@@ -62,6 +62,50 @@ function findParent(path: string): string {
   return idx === -1 ? "" : path.slice(0, idx);
 }
 
+function basename(p: string): string {
+  const idx = p.lastIndexOf("/");
+  return idx === -1 ? p : p.slice(idx + 1);
+}
+
+type DragState = { from: string; isDir: boolean };
+
+function canDrop(d: DragState, targetFolder: string): boolean {
+  if (d.from === targetFolder) return false;
+  const parent = findParent(d.from);
+  if (parent === targetFolder) return false;
+  if (d.isDir && (targetFolder === d.from || targetFolder.startsWith(d.from + "/"))) {
+    return false;
+  }
+  return true;
+}
+
+function findNode(nodes: TreeNode[], path: string): TreeNode | null {
+  for (const n of nodes) {
+    if (n.path === path) return n;
+    if (n.type === "dir") {
+      const found = findNode(n.children, path);
+      if (found) return found;
+    }
+  }
+  return null;
+}
+
+function childrenAt(nodes: TreeNode[], folder: string): TreeNode[] {
+  if (!folder) return nodes;
+  const n = findNode(nodes, folder);
+  return n && n.type === "dir" ? n.children : [];
+}
+
+type DragHandlers = {
+  drag: DragState | null;
+  dragOver: string | null;
+  onDragStartNode: (path: string, isDir: boolean) => void;
+  onDragEndNode: () => void;
+  onDragOverFolder: (e: React.DragEvent, path: string) => void;
+  onDragLeaveFolder: (path: string) => void;
+  onDropFolder: (e: React.DragEvent, path: string) => void;
+};
+
 function TreeNodeView({
   node,
   depth,
@@ -70,6 +114,7 @@ function TreeNodeView({
   onContextMenu,
   openDirs,
   toggleDir,
+  drag,
 }: {
   node: TreeNode;
   depth: number;
@@ -78,15 +123,31 @@ function TreeNodeView({
   onContextMenu: (e: React.MouseEvent, target: MenuState["target"]) => void;
   openDirs: Set<string>;
   toggleDir: (path: string) => void;
+  drag: DragHandlers;
 }) {
+  const isDragging = drag.drag?.from === node.path;
   if (node.type === "dir") {
     const isOpen = openDirs.has(node.path);
+    const isDropTarget = drag.dragOver === node.path;
     return (
       <div>
         <div
+          draggable
+          onDragStart={(e) => {
+            e.dataTransfer.effectAllowed = "move";
+            e.dataTransfer.setData("text/plain", node.path);
+            drag.onDragStartNode(node.path, true);
+          }}
+          onDragEnd={drag.onDragEndNode}
+          onDragOver={(e) => drag.onDragOverFolder(e, node.path)}
+          onDragLeave={() => drag.onDragLeaveFolder(node.path)}
+          onDrop={(e) => drag.onDropFolder(e, node.path)}
           className={cn(
-            "group flex items-center gap-1 px-2 py-1 text-sm cursor-pointer",
-            "hover:bg-zinc-100 dark:hover:bg-zinc-800/60 rounded",
+            "group flex items-center gap-1 px-2 py-1 text-sm cursor-pointer rounded",
+            "hover:bg-zinc-100 dark:hover:bg-zinc-800/60",
+            isDragging && "opacity-40",
+            isDropTarget &&
+              "bg-indigo-100 dark:bg-indigo-900/30 outline outline-1 outline-indigo-400",
           )}
           style={{ paddingLeft: 8 + depth * 12 }}
           onClick={() => toggleDir(node.path)}
@@ -111,6 +172,7 @@ function TreeNodeView({
                 onContextMenu={onContextMenu}
                 openDirs={openDirs}
                 toggleDir={toggleDir}
+                drag={drag}
               />
             ))}
           </div>
@@ -121,11 +183,19 @@ function TreeNodeView({
   const isSelected = selectedPath === node.path;
   return (
     <div
+      draggable
+      onDragStart={(e) => {
+        e.dataTransfer.effectAllowed = "move";
+        e.dataTransfer.setData("text/plain", node.path);
+        drag.onDragStartNode(node.path, false);
+      }}
+      onDragEnd={drag.onDragEndNode}
       className={cn(
         "flex items-center gap-1 px-2 py-1 text-sm cursor-pointer rounded",
         isSelected
           ? "bg-zinc-200 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-50"
           : "hover:bg-zinc-100 dark:hover:bg-zinc-800/60",
+        isDragging && "opacity-40",
       )}
       style={{ paddingLeft: 8 + depth * 12 + 12 }}
       onClick={() => onSelect(node.path)}
@@ -150,6 +220,8 @@ export function FileTree({
   const [error, setError] = useState<string | null>(null);
   const [menu, setMenu] = useState<MenuState | null>(null);
   const [openDirs, setOpenDirs] = useState<Set<string>>(new Set());
+  const [drag, setDrag] = useState<DragState | null>(null);
+  const [dragOver, setDragOver] = useState<string | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
   const refresh = useCallback(async () => {
@@ -236,6 +308,63 @@ export function FileTree({
     }
   }
 
+  async function performMove(from: string, targetFolder: string) {
+    const name = basename(from);
+    const to = targetFolder ? `${targetFolder}/${name}` : name;
+    const siblings = childrenAt(tree, targetFolder);
+    if (siblings.some((s) => s.name === name && s.path !== from)) {
+      window.alert(`"${name}" already exists in the target folder.`);
+      return;
+    }
+    try {
+      await apiMove(from, to);
+      if (selectedPath === from) onSelect(to);
+      else if (selectedPath?.startsWith(from + "/")) {
+        onSelect(to + selectedPath.slice(from.length));
+      }
+      if (targetFolder) setOpenDirs((s) => new Set(s).add(targetFolder));
+      await refresh();
+    } catch (e) {
+      window.alert(e instanceof Error ? e.message : "move failed");
+    }
+  }
+
+  const dragHandlers: DragHandlers = {
+    drag,
+    dragOver,
+    onDragStartNode(path, isDir) {
+      setDrag({ from: path, isDir });
+    },
+    onDragEndNode() {
+      setDrag(null);
+      setDragOver(null);
+    },
+    onDragOverFolder(e, target) {
+      if (!drag) return;
+      e.stopPropagation();
+      if (!canDrop(drag, target)) {
+        if (dragOver !== null) setDragOver(null);
+        return;
+      }
+      e.preventDefault();
+      e.dataTransfer.dropEffect = "move";
+      if (dragOver !== target) setDragOver(target);
+    },
+    onDragLeaveFolder(target) {
+      if (dragOver === target) setDragOver(null);
+    },
+    async onDropFolder(e, target) {
+      e.preventDefault();
+      e.stopPropagation();
+      const current = drag;
+      setDrag(null);
+      setDragOver(null);
+      if (!current) return;
+      if (!canDrop(current, target)) return;
+      await performMove(current.from, target);
+    },
+  };
+
   async function handleRename(node: TreeNode) {
     const initial =
       node.type === "file" ? node.name.replace(/\.json$/, "") : node.name;
@@ -291,7 +420,14 @@ export function FileTree({
         </div>
       </div>
       <div
-        className="flex-1 overflow-auto py-1 px-1"
+        className={cn(
+          "flex-1 overflow-auto py-1 px-1",
+          dragOver === "" &&
+            "outline outline-1 outline-indigo-400 bg-indigo-50/40 dark:bg-indigo-900/10",
+        )}
+        onDragOver={(e) => dragHandlers.onDragOverFolder(e, "")}
+        onDragLeave={() => dragHandlers.onDragLeaveFolder("")}
+        onDrop={(e) => dragHandlers.onDropFolder(e, "")}
         onContextMenu={(e) => {
           if (e.target === e.currentTarget) openMenu(e, { kind: "empty" });
         }}
@@ -317,6 +453,7 @@ export function FileTree({
             onContextMenu={openMenu}
             openDirs={openDirs}
             toggleDir={toggleDir}
+            drag={dragHandlers}
           />
         ))}
       </div>
