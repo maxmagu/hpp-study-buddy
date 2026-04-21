@@ -63,7 +63,7 @@ export default function Home() {
       style={{ "--editor-scale": String(fontScale) } as CSSProperties}
     >
       <header className="shrink-0 h-10 flex items-center justify-between px-3 border-b border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/40">
-        <span className="text-sm font-semibold">StuyBuddy</span>
+        <span className="text-sm font-semibold">HPP Study Buddy</span>
         <div className="flex items-center gap-2">
           <div className="flex items-center border border-zinc-300 dark:border-zinc-700 rounded overflow-hidden">
             <button

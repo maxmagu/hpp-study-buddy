@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "StuyBuddy",
+  title: "HPP Study Buddy",
   description: "Notion-like editor with active-recall study blocks",
 };
 
