@@ -30,6 +30,7 @@ body {
 
 .ProseMirror {
   outline: none;
+  font-size: calc(1rem * var(--editor-scale, 1));
 }
 
 .ProseMirror p.is-editor-empty:first-child::before {
