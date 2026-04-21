@@ -17,7 +17,19 @@
       "Bash(curl -sS -o /dev/null -w \"GET /api/tree : %{http_code} %{time_total}s\\\\n\" http://localhost:3000/api/tree)",
       "mcp__playwright__browser_click",
       "mcp__playwright__browser_close",
-      "Bash(git add *)"
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(npx tsc *)",
+      "Bash(lsof -iTCP:3000 -sTCP:LISTEN)",
+      "Bash(node scripts/migrate-named-lists.mjs --dry)",
+      "Bash(node scripts/migrate-named-lists.mjs)",
+      "Bash(git check-ignore *)",
+      "Bash(pkill -f \"next dev\" -o)",
+      "Bash(lsof -iTCP:3001 -sTCP:LISTEN -P)",
+      "Bash(git reset *)",
+      "Bash(git -C content remote -v)",
+      "Bash(git remote *)",
+      "Bash(git push *)"
     ]
   }
 }

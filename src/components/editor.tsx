@@ -1,6 +1,11 @@
 "use client";
 
-import { useEditor, EditorContent, type JSONContent } from "@tiptap/react";
+import {
+  useEditor,
+  useEditorState,
+  EditorContent,
+  type JSONContent,
+} from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Placeholder from "@tiptap/extension-placeholder";
 import Typography from "@tiptap/extension-typography";
@@ -9,6 +14,7 @@ import TaskItem from "@tiptap/extension-task-item";
 import CodeBlockLowlight from "@tiptap/extension-code-block-lowlight";
 import { common, createLowlight } from "lowlight";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { List, ListOrdered } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 type Status = "idle" | "loading" | "dirty" | "saving" | "saved" | "error";
@@ -58,7 +64,7 @@ function isListElement(el: Element | null): el is HTMLUListElement | HTMLOListEl
 }
 
 function isHeadingElement(el: Element | null): el is HTMLHeadingElement {
-  return !!el && /^H[1-3]$/.test(el.tagName);
+  return !!el && /^H[1-4]$/.test(el.tagName);
 }
 
 function pairedHeading(list: Element): HTMLHeadingElement | null {
@@ -139,7 +145,7 @@ export function Editor({
     extensions: [
       StarterKit.configure({
         codeBlock: false,
-        heading: { levels: [1, 2, 3] },
+        heading: { levels: [1, 2, 3, 4] },
       }),
       Placeholder.configure({
         placeholder: "Start writing…",
@@ -174,6 +180,20 @@ export function Editor({
     onBlur: () => {
       if (pendingRef.current) void flushRef.current();
     },
+  });
+
+  const toolbarState = useEditorState({
+    editor,
+    selector: ({ editor }) =>
+      editor
+        ? {
+            heading: [1, 2, 3, 4].map((level) =>
+              editor.isActive("heading", { level }),
+            ),
+            bullet: editor.isActive("bulletList"),
+            ordered: editor.isActive("orderedList"),
+          }
+        : null,
   });
 
   const flush = useCallback(async () => {
@@ -309,19 +329,16 @@ export function Editor({
       const prev = activeListRef.current;
       if (prev && prev !== list) {
         prev.classList.remove("recall-active");
-        pairedHeading(prev)?.classList.remove("recall-active");
         getDirectListItems(prev).forEach((li) =>
           li.classList.add("recall-covered"),
         );
       }
       list.classList.add("recall-active");
-      const heading = pairedHeading(list);
-      heading?.classList.add("recall-active");
       activeListRef.current = list;
       setRevealed(0);
       setActiveListKey((k) => k + 1);
       if (opts.scroll) {
-        (heading ?? list).scrollIntoView({ block: "nearest" });
+        (pairedHeading(list) ?? list).scrollIntoView({ block: "nearest" });
       }
     },
     [],
@@ -338,7 +355,7 @@ export function Editor({
       if (!target || !root) return;
 
       let list: Element | null = null;
-      const heading = target.closest("h1, h2, h3");
+      const heading = target.closest("h1, h2, h3, h4");
       if (heading && root.contains(heading)) {
         list = listAfterHeading(heading);
       } else {
@@ -417,13 +434,13 @@ export function Editor({
         <div className="flex items-center gap-3">
           {!recallMode && (
             <>
-              {([1, 2, 3] as const).map((level) => (
+              {([1, 2, 3, 4] as const).map((level) => (
                 <button
                   key={level}
                   type="button"
                   className={cn(
                     "px-2 py-1 rounded hover:bg-zinc-100 dark:hover:bg-zinc-800",
-                    editor?.isActive("heading", { level }) &&
+                    toolbarState?.heading[level - 1] &&
                       "bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-50",
                   )}
                   onClick={() =>
@@ -438,29 +455,31 @@ export function Editor({
                 type="button"
                 className={cn(
                   "px-2 py-1 rounded hover:bg-zinc-100 dark:hover:bg-zinc-800",
-                  editor?.isActive("bulletList") &&
+                  toolbarState?.bullet &&
                     "bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-50",
                 )}
                 onClick={() =>
                   editor?.chain().focus().toggleBulletList().run()
                 }
                 title="Bulleted list (⌘/Ctrl + Shift + 8)"
+                aria-label="Bulleted list"
               >
-                • List
+                <List className="w-4 h-4" />
               </button>
               <button
                 type="button"
                 className={cn(
                   "px-2 py-1 rounded hover:bg-zinc-100 dark:hover:bg-zinc-800",
-                  editor?.isActive("orderedList") &&
+                  toolbarState?.ordered &&
                     "bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-50",
                 )}
                 onClick={() =>
                   editor?.chain().focus().toggleOrderedList().run()
                 }
                 title="Numbered list (⌘/Ctrl + Shift + 7)"
+                aria-label="Numbered list"
               >
-                1. List
+                <ListOrdered className="w-4 h-4" />
               </button>
             </>
           )}
@@ -471,7 +490,7 @@ export function Editor({
           )}
           <span
             className={cn(
-              "tabular-nums",
+              "tabular-nums inline-block w-24 text-right",
               status === "error" && "text-red-500",
               status === "saved" && "text-emerald-600 dark:text-emerald-400",
             )}

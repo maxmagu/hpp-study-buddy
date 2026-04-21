@@ -33,6 +33,18 @@ body {
   font-size: calc(1rem * var(--editor-scale, 1));
 }
 
+.ProseMirror h1 {
+  font-size: 1.625em;
+}
+
+.ProseMirror h4 {
+  font-size: 1.125em;
+}
+
+.ProseMirror p {
+  font-size: 1.0625em;
+}
+
 .ProseMirror p.is-editor-empty:first-child::before {
   content: attr(data-placeholder);
   color: #a1a1aa;
@@ -69,7 +81,9 @@ body {
 .recall-mode .ProseMirror h2:has(+ ul:not([data-type="taskList"])),
 .recall-mode .ProseMirror h2:has(+ ol),
 .recall-mode .ProseMirror h3:has(+ ul:not([data-type="taskList"])),
-.recall-mode .ProseMirror h3:has(+ ol) {
+.recall-mode .ProseMirror h3:has(+ ol),
+.recall-mode .ProseMirror h4:has(+ ul:not([data-type="taskList"])),
+.recall-mode .ProseMirror h4:has(+ ol) {
   cursor: pointer;
 }
 
