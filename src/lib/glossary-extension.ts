@@ -65,8 +65,8 @@ function buildDecorations(
       decorations.push(
         Decoration.inline(start, end, {
           class: "glossary-term",
-          title: entry.definitionPreview || entry.canonical,
           "data-term": entry.canonical,
+          "data-glossary-preview": entry.definitionPreview || entry.canonical,
         }),
       );
     }

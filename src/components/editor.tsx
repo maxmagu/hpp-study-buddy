@@ -109,9 +109,11 @@ function uncoverAll(root: HTMLElement) {
 export function Editor({
   path,
   recallMode,
+  onPathMissing,
 }: {
   path: string | null;
   recallMode: boolean;
+  onPathMissing?: (path: string) => void;
 }) {
   const [status, setStatus] = useState<Status>("idle");
   const saveTimerRef = useRef<number | null>(null);
@@ -129,6 +131,11 @@ export function Editor({
   const [activeListKey, setActiveListKey] = useState(0);
   const [prevPath, setPrevPath] = useState<string | null>(path);
   const [prevRecallMode, setPrevRecallMode] = useState(recallMode);
+  const [tooltip, setTooltip] = useState<{
+    left: number;
+    top: number;
+    text: string;
+  } | null>(null);
 
   if (prevPath !== path) {
     setPrevPath(path);
@@ -308,13 +315,18 @@ export function Editor({
         }
       })
       .catch(() => {
-        if (!cancelled) setStatus("error");
+        if (cancelled) return;
+        setStatus("error");
+        // Don't autosave back to a path we couldn't load — would recreate
+        // a file that was deleted out from under a stale lastPath.
+        currentPathRef.current = null;
+        if (path) onPathMissing?.(path);
       });
 
     return () => {
       cancelled = true;
     };
-  }, [path, editor]);
+  }, [path, editor, onPathMissing]);
 
   useEffect(() => {
     function onBeforeUnload() {
@@ -334,6 +346,45 @@ export function Editor({
     window.addEventListener("beforeunload", onBeforeUnload);
     return () => window.removeEventListener("beforeunload", onBeforeUnload);
   }, []);
+
+  // Glossary term hover tooltip.
+  useEffect(() => {
+    const root = containerRef.current;
+    if (!root) return;
+
+    function onOver(e: MouseEvent) {
+      const target = (e.target as Element | null)?.closest(".glossary-term");
+      if (!target || !root) return;
+      const text = target.getAttribute("data-glossary-preview") ?? "";
+      if (!text) return;
+      const termRect = (target as HTMLElement).getBoundingClientRect();
+      const rootRect = root.getBoundingClientRect();
+      setTooltip({
+        left: termRect.left - rootRect.left,
+        top: termRect.bottom - rootRect.top + root.scrollTop + 6,
+        text,
+      });
+    }
+
+    function onOut(e: MouseEvent) {
+      const target = (e.target as Element | null)?.closest(".glossary-term");
+      const related = (e.relatedTarget as Element | null)?.closest?.(
+        ".glossary-term",
+      );
+      if (!target || related === target) return;
+      setTooltip(null);
+    }
+
+    root.addEventListener("mouseover", onOver);
+    root.addEventListener("mouseout", onOut);
+    return () => {
+      root.removeEventListener("mouseover", onOver);
+      root.removeEventListener("mouseout", onOut);
+    };
+    // path is in deps so the effect re-runs once a file is opened — on
+    // first render with `path === null` the placeholder is shown and
+    // containerRef is null, so we'd otherwise never attach.
+  }, [path]);
 
   // Cover or uncover all lists when recall mode toggles.
   useEffect(() => {
@@ -536,9 +587,18 @@ export function Editor({
       </div>
       <div
         ref={containerRef}
-        className={cn("flex-1 overflow-auto", recallMode && "recall-mode")}
+        className={cn("flex-1 overflow-auto relative", recallMode && "recall-mode")}
       >
         <EditorContent editor={editor} />
+        {tooltip && (
+          <div
+            role="tooltip"
+            className="glossary-tooltip absolute z-50 max-w-md px-3 py-2 rounded-md text-[13px] leading-snug shadow-lg pointer-events-none bg-zinc-900 text-zinc-100 dark:bg-zinc-100 dark:text-zinc-900"
+            style={{ left: tooltip.left, top: tooltip.top }}
+          >
+            {tooltip.text}
+          </div>
+        )}
       </div>
     </div>
   );

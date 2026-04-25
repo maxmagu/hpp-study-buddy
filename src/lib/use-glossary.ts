@@ -18,7 +18,7 @@ export function useGlossary(): Glossary {
 
     async function load() {
       try {
-        const res = await fetch(`/api/file/${GLOSSARY_PATH}`);
+        const res = await fetch(`/api/file/${encodeURIComponent(GLOSSARY_PATH)}`);
         if (!res.ok) {
           if (!cancelled) setGlossary(EMPTY_GLOSSARY);
           return;

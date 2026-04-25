@@ -109,7 +109,13 @@ export default function Home() {
           <FileTree selectedPath={selectedPath} onSelect={setSelectedPath} />
         </aside>
         <main className="flex-1 flex flex-col min-w-0">
-          <Editor path={selectedPath} recallMode={recallMode} />
+          <Editor
+            path={selectedPath}
+            recallMode={recallMode}
+            onPathMissing={(p) => {
+              if (selectedPath === p) setSelectedPath(null);
+            }}
+          />
         </main>
       </div>
     </div>

@@ -65,6 +65,28 @@ body {
   border-bottom-color: #818cf8;
 }
 
+.glossary-tooltip {
+  position: absolute;
+  z-index: 50;
+  max-width: 28rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.375rem;
+  background: #18181b;
+  color: #f4f4f5;
+  font-size: 0.8125rem;
+  line-height: 1.4;
+  box-shadow:
+    0 4px 6px -1px rgb(0 0 0 / 0.15),
+    0 2px 4px -2px rgb(0 0 0 / 0.15);
+  pointer-events: none;
+  white-space: normal;
+}
+
+.dark .glossary-tooltip {
+  background: #f4f4f5;
+  color: #18181b;
+}
+
 .ProseMirror p.is-editor-empty:first-child::before {
   content: attr(data-placeholder);
   color: #a1a1aa;

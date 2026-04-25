@@ -1,6 +1,6 @@
 import type { JSONContent } from "@tiptap/react";
 
-export const GLOSSARY_PATH = "_glossary.json";
+export const GLOSSARY_PATH = "X - Glossary.json";
 
 export type GlossaryEntry = {
   canonical: string;
@@ -20,8 +20,6 @@ export const EMPTY_GLOSSARY: Glossary = {
   lookup: new Map(),
   regex: null,
 };
-
-const PREVIEW_LIMIT = 240;
 
 export function parseGlossary(doc: JSONContent | null | undefined): Glossary {
   if (!doc?.content?.length) return EMPTY_GLOSSARY;
@@ -55,7 +53,7 @@ export function parseGlossary(doc: JSONContent | null | undefined): Glossary {
   }
 
   for (const e of entries) {
-    e.definitionPreview = previewText(e.definition).slice(0, PREVIEW_LIMIT);
+    e.definitionPreview = previewText(e.definition);
   }
 
   const lookup = new Map<string, GlossaryEntry>();
