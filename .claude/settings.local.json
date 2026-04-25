@@ -29,7 +29,10 @@
       "Bash(git reset *)",
       "Bash(git -C content remote -v)",
       "Bash(git remote *)",
-      "Bash(git push *)"
+      "Bash(git push *)",
+      "Bash(npx eslint *)",
+      "Bash(curl -s http://localhost:3000/api/tree)",
+      "Bash(curl -s http://localhost:3000/api/file/_glossary.json)"
     ]
   }
 }

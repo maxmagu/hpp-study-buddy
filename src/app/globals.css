@@ -45,6 +45,26 @@ body {
   font-size: 1.0625em;
 }
 
+.ProseMirror .glossary-term {
+  border-bottom: 1px dotted #a1a1aa;
+  cursor: help;
+  transition: background-color 120ms ease, border-color 120ms ease;
+}
+
+.ProseMirror .glossary-term:hover {
+  background-color: rgba(99, 102, 241, 0.12);
+  border-bottom-color: #6366f1;
+}
+
+.dark .ProseMirror .glossary-term {
+  border-bottom-color: #71717a;
+}
+
+.dark .ProseMirror .glossary-term:hover {
+  background-color: rgba(129, 140, 248, 0.18);
+  border-bottom-color: #818cf8;
+}
+
 .ProseMirror p.is-editor-empty:first-child::before {
   content: attr(data-placeholder);
   color: #a1a1aa;

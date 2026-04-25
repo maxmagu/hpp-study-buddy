@@ -16,6 +16,12 @@ import { common, createLowlight } from "lowlight";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { List, ListOrdered } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { GLOSSARY_PATH, EMPTY_GLOSSARY } from "@/lib/glossary";
+import { useGlossary, notifyGlossaryUpdated } from "@/lib/use-glossary";
+import {
+  GlossaryDecorations,
+  glossaryPluginKey,
+} from "@/lib/glossary-extension";
 
 type Status = "idle" | "loading" | "dirty" | "saving" | "saved" | "error";
 
@@ -140,6 +146,21 @@ export function Editor({
     recallModeRef.current = recallMode;
   }, [recallMode]);
 
+  const glossary = useGlossary();
+  const glossaryRef = useRef(glossary);
+  useEffect(() => {
+    glossaryRef.current = glossary;
+  }, [glossary]);
+
+  // Suppress decorations on the glossary file itself (terms would underline
+  // their own headings and definitions) and during recall mode (would leak
+  // answers via the tooltip).
+  const decorationsEnabled = path !== GLOSSARY_PATH && !recallMode;
+  const decorationsEnabledRef = useRef(decorationsEnabled);
+  useEffect(() => {
+    decorationsEnabledRef.current = decorationsEnabled;
+  }, [decorationsEnabled]);
+
   const editor = useEditor({
     immediatelyRender: false,
     extensions: [
@@ -154,6 +175,11 @@ export function Editor({
       TaskList,
       TaskItem.configure({ nested: true }),
       CodeBlockLowlight.configure({ lowlight }),
+      // eslint-disable-next-line react-hooks/refs -- getGlossary is read at PM apply time, not render
+      GlossaryDecorations.configure({
+        getGlossary: () =>
+          decorationsEnabledRef.current ? glossaryRef.current : EMPTY_GLOSSARY,
+      }),
     ],
     editorProps: {
       attributes: {
@@ -211,6 +237,7 @@ export function Editor({
     if (ok) lastSavedJsonRef.current = json;
     if (pendingRef.current === content) pendingRef.current = null;
     setStatus(ok ? "saved" : "error");
+    if (ok && p === GLOSSARY_PATH) notifyGlossaryUpdated();
   }, []);
 
   useEffect(() => {
@@ -222,6 +249,14 @@ export function Editor({
     const loading = status === "loading";
     editor.setEditable(!(recallMode || loading));
   }, [editor, recallMode, status]);
+
+  // Force the glossary plugin to rebuild decorations when the glossary or
+  // its enablement changes (no doc change has occurred to trigger it).
+  useEffect(() => {
+    if (!editor) return;
+    const tr = editor.state.tr.setMeta(glossaryPluginKey, { invalidate: true });
+    editor.view.dispatch(tr);
+  }, [editor, glossary, decorationsEnabled]);
 
   useEffect(() => {
     if (!editor) return;
