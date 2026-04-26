@@ -255,6 +255,15 @@ export function Editor({
       setStatus("saved");
       return;
     }
+    // Refuse to autosave an empty doc over a non-empty stored one — this
+    // catches a class of races where transient editor state (e.g. brief
+    // EMPTY_DOC during reload) would otherwise wipe a real file.
+    const EMPTY_JSON = JSON.stringify(EMPTY_DOC);
+    if (json === EMPTY_JSON && lastSavedJsonRef.current !== EMPTY_JSON) {
+      pendingRef.current = null;
+      setStatus("error");
+      return;
+    }
     setStatus("saving");
     const ok = await saveFile(p, content);
     if (ok) lastSavedJsonRef.current = json;
@@ -360,6 +369,11 @@ export function Editor({
       const p = currentPathRef.current;
       const content = pendingRef.current;
       if (!p || !content) return;
+      const json = JSON.stringify(content);
+      const EMPTY_JSON = JSON.stringify(EMPTY_DOC);
+      if (json === EMPTY_JSON && lastSavedJsonRef.current !== EMPTY_JSON) {
+        return;
+      }
       const parts = p
         .split("/")
         .filter(Boolean)

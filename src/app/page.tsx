@@ -1,6 +1,13 @@
 "use client";
 
-import { CSSProperties, useEffect, useMemo, useRef, useState } from "react";
+import {
+  CSSProperties,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { FileTree } from "@/components/file-tree";
 import { Editor } from "@/components/editor";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -109,6 +116,10 @@ export default function Home() {
     return hit?.matchedTerms ?? [];
   }, [hits, selectedPath]);
 
+  const onPathMissing = useCallback((p: string) => {
+    setSelectedPath((cur) => (cur === p ? null : cur));
+  }, []);
+
   const atMin = fontScale <= MIN_SCALE + 1e-6;
   const atMax = fontScale >= MAX_SCALE - 1e-6;
 
@@ -190,9 +201,7 @@ export default function Home() {
             path={selectedPath}
             recallMode={recallMode}
             searchTerms={searchTerms}
-            onPathMissing={(p) => {
-              if (selectedPath === p) setSelectedPath(null);
-            }}
+            onPathMissing={onPathMissing}
           />
         </main>
       </div>
