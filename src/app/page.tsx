@@ -1,9 +1,10 @@
 "use client";
 
-import { CSSProperties, useEffect, useRef, useState } from "react";
+import { CSSProperties, useEffect, useMemo, useRef, useState } from "react";
 import { FileTree } from "@/components/file-tree";
 import { Editor } from "@/components/editor";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { useSearch } from "@/lib/use-search";
 import { cn } from "@/lib/utils";
 
 const LAST_PATH_KEY = "studybuddy:lastPath";
@@ -22,7 +23,9 @@ export default function Home() {
   const [selectedPath, setSelectedPath] = useState<string | null>(null);
   const [recallMode, setRecallMode] = useState(false);
   const [fontScale, setFontScale] = useState(1);
+  const [searchQuery, setSearchQuery] = useState("");
   const restoredRef = useRef(false);
+  const { search } = useSearch();
 
   useEffect(() => {
     const savedPath = window.localStorage.getItem(LAST_PATH_KEY);
@@ -54,6 +57,22 @@ export default function Home() {
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
+  const hits = useMemo(
+    () => (searchQuery.trim() ? search(searchQuery) : []),
+    [searchQuery, search],
+  );
+
+  const highlightPaths = useMemo(
+    () => new Set(hits.map((h) => h.path)),
+    [hits],
+  );
+
+  const searchTerms = useMemo(() => {
+    if (!selectedPath) return [];
+    const hit = hits.find((h) => h.path === selectedPath);
+    return hit?.matchedTerms ?? [];
+  }, [hits, selectedPath]);
+
   const atMin = fontScale <= MIN_SCALE + 1e-6;
   const atMax = fontScale >= MAX_SCALE - 1e-6;
 
@@ -65,6 +84,14 @@ export default function Home() {
       <header className="shrink-0 h-10 flex items-center justify-between px-3 border-b border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/40">
         <span className="text-sm font-semibold">HPP Study Buddy</span>
         <div className="flex items-center gap-2">
+          <input
+            type="search"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search…"
+            aria-label="Search"
+            className="text-xs px-2 py-1 w-56 rounded border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+          />
           <div className="flex items-center border border-zinc-300 dark:border-zinc-700 rounded overflow-hidden">
             <button
               type="button"
@@ -106,12 +133,17 @@ export default function Home() {
       </header>
       <div className="flex flex-1 min-h-0 w-full overflow-hidden">
         <aside className="w-64 shrink-0 flex flex-col border-r border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/40">
-          <FileTree selectedPath={selectedPath} onSelect={setSelectedPath} />
+          <FileTree
+            selectedPath={selectedPath}
+            onSelect={setSelectedPath}
+            highlightPaths={highlightPaths}
+          />
         </aside>
         <main className="flex-1 flex flex-col min-w-0">
           <Editor
             path={selectedPath}
             recallMode={recallMode}
+            searchTerms={searchTerms}
             onPathMissing={(p) => {
               if (selectedPath === p) setSelectedPath(null);
             }}

@@ -18,6 +18,11 @@ import { List, ListOrdered } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { GLOSSARY_PATH, EMPTY_GLOSSARY } from "@/lib/glossary";
 import { useGlossary, notifyGlossaryUpdated } from "@/lib/use-glossary";
+import { notifyDocSaved } from "@/lib/use-search";
+import {
+  SearchHighlight,
+  searchHighlightPluginKey,
+} from "@/lib/search-highlight-extension";
 import {
   GlossaryDecorations,
   glossaryPluginKey,
@@ -109,10 +114,12 @@ function uncoverAll(root: HTMLElement) {
 export function Editor({
   path,
   recallMode,
+  searchTerms,
   onPathMissing,
 }: {
   path: string | null;
   recallMode: boolean;
+  searchTerms?: string[];
   onPathMissing?: (path: string) => void;
 }) {
   const [status, setStatus] = useState<Status>("idle");
@@ -159,6 +166,11 @@ export function Editor({
     glossaryRef.current = glossary;
   }, [glossary]);
 
+  const searchTermsRef = useRef<string[]>(searchTerms ?? []);
+  useEffect(() => {
+    searchTermsRef.current = searchTerms ?? [];
+  }, [searchTerms]);
+
   // Suppress decorations on the glossary file itself (terms would underline
   // their own headings and definitions) and during recall mode (would leak
   // answers via the tooltip).
@@ -186,6 +198,10 @@ export function Editor({
       GlossaryDecorations.configure({
         getGlossary: () =>
           decorationsEnabledRef.current ? glossaryRef.current : EMPTY_GLOSSARY,
+      }),
+      // eslint-disable-next-line react-hooks/refs -- getTerms is read at PM apply time, not render
+      SearchHighlight.configure({
+        getTerms: () => searchTermsRef.current,
       }),
     ],
     editorProps: {
@@ -244,7 +260,10 @@ export function Editor({
     if (ok) lastSavedJsonRef.current = json;
     if (pendingRef.current === content) pendingRef.current = null;
     setStatus(ok ? "saved" : "error");
-    if (ok && p === GLOSSARY_PATH) notifyGlossaryUpdated();
+    if (ok) {
+      if (p === GLOSSARY_PATH) notifyGlossaryUpdated();
+      notifyDocSaved(p);
+    }
   }, []);
 
   useEffect(() => {
@@ -264,6 +283,14 @@ export function Editor({
     const tr = editor.state.tr.setMeta(glossaryPluginKey, { invalidate: true });
     editor.view.dispatch(tr);
   }, [editor, glossary, decorationsEnabled]);
+
+  useEffect(() => {
+    if (!editor) return;
+    const tr = editor.state.tr.setMeta(searchHighlightPluginKey, {
+      invalidate: true,
+    });
+    editor.view.dispatch(tr);
+  }, [editor, searchTerms]);
 
   useEffect(() => {
     if (!editor) return;

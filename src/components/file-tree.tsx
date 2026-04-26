@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
+import { notifyTreeChanged } from "@/lib/use-search";
 
 export type TreeNode =
   | { type: "file"; name: string; path: string }
@@ -115,6 +116,7 @@ function TreeNodeView({
   openDirs,
   toggleDir,
   drag,
+  highlightPaths,
 }: {
   node: TreeNode;
   depth: number;
@@ -124,6 +126,7 @@ function TreeNodeView({
   openDirs: Set<string>;
   toggleDir: (path: string) => void;
   drag: DragHandlers;
+  highlightPaths?: Set<string>;
 }) {
   const isDragging = drag.drag?.from === node.path;
   if (node.type === "dir") {
@@ -173,6 +176,7 @@ function TreeNodeView({
                 openDirs={openDirs}
                 toggleDir={toggleDir}
                 drag={drag}
+                highlightPaths={highlightPaths}
               />
             ))}
           </div>
@@ -181,6 +185,7 @@ function TreeNodeView({
     );
   }
   const isSelected = selectedPath === node.path;
+  const isHighlighted = highlightPaths?.has(node.path) ?? false;
   return (
     <div
       draggable
@@ -194,7 +199,9 @@ function TreeNodeView({
         "flex items-center gap-1 px-2 py-1 text-sm cursor-pointer rounded",
         isSelected
           ? "bg-zinc-200 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-50"
-          : "hover:bg-zinc-100 dark:hover:bg-zinc-800/60",
+          : isHighlighted
+            ? "bg-yellow-200 dark:bg-yellow-700/60 text-zinc-900 dark:text-zinc-50"
+            : "hover:bg-zinc-100 dark:hover:bg-zinc-800/60",
         isDragging && "opacity-40",
       )}
       style={{ paddingLeft: 8 + depth * 12 + 12 }}
@@ -211,9 +218,11 @@ function TreeNodeView({
 export function FileTree({
   selectedPath,
   onSelect,
+  highlightPaths,
 }: {
   selectedPath: string | null;
   onSelect: (path: string | null) => void;
+  highlightPaths?: Set<string>;
 }) {
   const [tree, setTree] = useState<TreeNode[]>([]);
   const [loading, setLoading] = useState(true);
@@ -288,6 +297,7 @@ export function FileTree({
         setOpenDirs((s) => new Set(s).add(parent));
       }
       await refresh();
+      notifyTreeChanged();
       if (kind === "file") onSelect(target);
     } catch (e) {
       window.alert(e instanceof Error ? e.message : "create failed");
@@ -303,6 +313,7 @@ export function FileTree({
         onSelect(null);
       }
       await refresh();
+      notifyTreeChanged();
     } catch (e) {
       window.alert(e instanceof Error ? e.message : "delete failed");
     }
@@ -324,6 +335,7 @@ export function FileTree({
       }
       if (targetFolder) setOpenDirs((s) => new Set(s).add(targetFolder));
       await refresh();
+      notifyTreeChanged();
     } catch (e) {
       window.alert(e instanceof Error ? e.message : "move failed");
     }
@@ -384,6 +396,7 @@ export function FileTree({
       await apiMove(node.path, newPath);
       if (selectedPath === node.path) onSelect(newPath);
       await refresh();
+      notifyTreeChanged();
     } catch (e) {
       window.alert(e instanceof Error ? e.message : "rename failed");
     }
@@ -454,6 +467,7 @@ export function FileTree({
             openDirs={openDirs}
             toggleDir={toggleDir}
             drag={dragHandlers}
+            highlightPaths={highlightPaths}
           />
         ))}
       </div>
