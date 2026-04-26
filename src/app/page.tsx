@@ -9,9 +9,13 @@ import { cn } from "@/lib/utils";
 
 const LAST_PATH_KEY = "studybuddy:lastPath";
 const FONT_SCALE_KEY = "studybuddy:fontScale";
+const TREE_WIDTH_KEY = "studybuddy:treeWidth";
 const MIN_SCALE = 0.8;
 const MAX_SCALE = 2.0;
 const SCALE_STEP = 0.1;
+const MIN_TREE_WIDTH = 160;
+const MAX_TREE_WIDTH = 600;
+const DEFAULT_TREE_WIDTH = 256;
 
 function clampScale(n: number): number {
   if (!Number.isFinite(n)) return 1;
@@ -19,11 +23,17 @@ function clampScale(n: number): number {
   return Math.min(MAX_SCALE, Math.max(MIN_SCALE, rounded));
 }
 
+function clampWidth(n: number): number {
+  if (!Number.isFinite(n)) return DEFAULT_TREE_WIDTH;
+  return Math.min(MAX_TREE_WIDTH, Math.max(MIN_TREE_WIDTH, Math.round(n)));
+}
+
 export default function Home() {
   const [selectedPath, setSelectedPath] = useState<string | null>(null);
   const [recallMode, setRecallMode] = useState(false);
   const [fontScale, setFontScale] = useState(1);
   const [searchQuery, setSearchQuery] = useState("");
+  const [treeWidth, setTreeWidth] = useState(DEFAULT_TREE_WIDTH);
   const restoredRef = useRef(false);
   const { search } = useSearch();
 
@@ -32,6 +42,8 @@ export default function Home() {
     if (savedPath) setSelectedPath(savedPath);
     const savedScale = window.localStorage.getItem(FONT_SCALE_KEY);
     if (savedScale) setFontScale(clampScale(parseFloat(savedScale)));
+    const savedWidth = window.localStorage.getItem(TREE_WIDTH_KEY);
+    if (savedWidth) setTreeWidth(clampWidth(parseInt(savedWidth, 10)));
     restoredRef.current = true;
   }, []);
 
@@ -45,6 +57,30 @@ export default function Home() {
     if (!restoredRef.current) return;
     window.localStorage.setItem(FONT_SCALE_KEY, String(fontScale));
   }, [fontScale]);
+
+  useEffect(() => {
+    if (!restoredRef.current) return;
+    window.localStorage.setItem(TREE_WIDTH_KEY, String(treeWidth));
+  }, [treeWidth]);
+
+  function startTreeResize(e: React.PointerEvent<HTMLDivElement>) {
+    e.preventDefault();
+    const startX = e.clientX;
+    const startW = treeWidth;
+    function move(ev: PointerEvent) {
+      setTreeWidth(clampWidth(startW + (ev.clientX - startX)));
+    }
+    function end() {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", end);
+      document.body.style.userSelect = "";
+      document.body.style.cursor = "";
+    }
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", end);
+    document.body.style.userSelect = "none";
+    document.body.style.cursor = "col-resize";
+  }
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -132,13 +168,23 @@ export default function Home() {
         </div>
       </header>
       <div className="flex flex-1 min-h-0 w-full overflow-hidden">
-        <aside className="w-64 shrink-0 flex flex-col border-r border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/40">
+        <aside
+          style={{ width: treeWidth }}
+          className="shrink-0 flex flex-col border-r border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/40"
+        >
           <FileTree
             selectedPath={selectedPath}
             onSelect={setSelectedPath}
             highlightPaths={highlightPaths}
           />
         </aside>
+        <div
+          role="separator"
+          aria-orientation="vertical"
+          aria-label="Resize file tree"
+          onPointerDown={startTreeResize}
+          className="w-1 shrink-0 cursor-col-resize bg-transparent hover:bg-indigo-400/40 active:bg-indigo-500/60"
+        />
         <main className="flex-1 flex flex-col min-w-0">
           <Editor
             path={selectedPath}
