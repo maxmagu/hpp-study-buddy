@@ -28,7 +28,14 @@ import {
   glossaryPluginKey,
 } from "@/lib/glossary-extension";
 
-type Status = "idle" | "loading" | "dirty" | "saving" | "saved" | "error";
+type Status =
+  | "idle"
+  | "loading"
+  | "dirty"
+  | "saving"
+  | "saved"
+  | "error"
+  | "skipped-empty";
 
 const DEBOUNCE_MS = 800;
 
@@ -53,6 +60,8 @@ function statusLabel(s: Status): string {
       return "Saved";
     case "error":
       return "Save failed";
+    case "skipped-empty":
+      return "Skipped empty";
   }
 }
 
@@ -255,13 +264,18 @@ export function Editor({
       setStatus("saved");
       return;
     }
-    // Refuse to autosave an empty doc over a non-empty stored one — this
-    // catches a class of races where transient editor state (e.g. brief
-    // EMPTY_DOC during reload) would otherwise wipe a real file.
+    // Defence in depth: refuse to autosave an empty doc over a non-empty
+    // stored one. With setEditable(false, false) and the early lastSaved
+    // pin, this should never fire — but if it does, log so we can find
+    // whatever new race opened.
     const EMPTY_JSON = JSON.stringify(EMPTY_DOC);
     if (json === EMPTY_JSON && lastSavedJsonRef.current !== EMPTY_JSON) {
+      console.warn("[hpp] skipped autosave: would have wiped non-empty file", {
+        path: p,
+        lastSavedLen: lastSavedJsonRef.current?.length,
+      });
       pendingRef.current = null;
-      setStatus("error");
+      setStatus("skipped-empty");
       return;
     }
     setStatus("saving");
@@ -282,7 +296,10 @@ export function Editor({
   useEffect(() => {
     if (!editor) return;
     const loading = status === "loading";
-    editor.setEditable(!(recallMode || loading));
+    // Pass emitUpdate=false: Tiptap's setEditable defaults to firing an
+    // `update` event, which we don't want — we only autosave on real
+    // content changes, not on editable-flag toggles.
+    editor.setEditable(!(recallMode || loading), false);
   }, [editor, recallMode, status]);
 
   // Force the glossary plugin to rebuild decorations when the glossary or
@@ -319,14 +336,21 @@ export function Editor({
 
     currentPathRef.current = path;
     activeListRef.current = null;
+    pendingRef.current = null;
 
-    editor.setEditable(false);
+    editor.setEditable(false, false);
+
+    // Reset to EMPTY_DOC and pin lastSavedJsonRef to match. lastSavedJson
+    // is set BEFORE setContent because Tiptap fires `update` events in
+    // narrow windows around setContent that escape applyingContentRef —
+    // pinning lastSaved first means any such fire finds str === lastSaved
+    // and bails instead of queueing a doomed EMPTY_DOC autosave.
+    lastSavedJsonRef.current = JSON.stringify(EMPTY_DOC);
+    applyingContentRef.current = true;
+    editor.commands.setContent(EMPTY_DOC, { emitUpdate: false });
+    applyingContentRef.current = false;
 
     if (!path) {
-      applyingContentRef.current = true;
-      editor.commands.setContent(EMPTY_DOC, { emitUpdate: false });
-      applyingContentRef.current = false;
-      lastSavedJsonRef.current = JSON.stringify(EMPTY_DOC);
       return;
     }
 
@@ -341,10 +365,12 @@ export function Editor({
       .then(({ content }) => {
         if (cancelled) return;
         const loaded = content ?? EMPTY_DOC;
+        // Pin lastSavedJson before setContent — see path-change effect
+        // comment for why this order matters.
+        lastSavedJsonRef.current = JSON.stringify(loaded);
         applyingContentRef.current = true;
         editor.commands.setContent(loaded, { emitUpdate: false });
         applyingContentRef.current = false;
-        lastSavedJsonRef.current = JSON.stringify(loaded);
         setStatus("saved");
         if (recallModeRef.current && containerRef.current) {
           coverAllLists(containerRef.current);
@@ -620,6 +646,7 @@ export function Editor({
               "tabular-nums inline-block w-24 text-right",
               status === "error" && "text-red-500",
               status === "saved" && "text-emerald-600 dark:text-emerald-400",
+              status === "skipped-empty" && "text-amber-600 dark:text-amber-400",
             )}
           >
             {statusLabel(status)}

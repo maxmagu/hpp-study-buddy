@@ -45,12 +45,17 @@ export default function Home() {
   const { search } = useSearch();
 
   useEffect(() => {
+    // localStorage is unavailable during SSR, so we hydrate from it
+    // post-mount. Lazy-initialising useState would either crash on the
+    // server or cause a hydration mismatch — accept one extra render.
+    /* eslint-disable react-hooks/set-state-in-effect */
     const savedPath = window.localStorage.getItem(LAST_PATH_KEY);
     if (savedPath) setSelectedPath(savedPath);
     const savedScale = window.localStorage.getItem(FONT_SCALE_KEY);
     if (savedScale) setFontScale(clampScale(parseFloat(savedScale)));
     const savedWidth = window.localStorage.getItem(TREE_WIDTH_KEY);
     if (savedWidth) setTreeWidth(clampWidth(parseInt(savedWidth, 10)));
+    /* eslint-enable react-hooks/set-state-in-effect */
     restoredRef.current = true;
   }, []);
 

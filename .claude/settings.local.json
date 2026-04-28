@@ -32,7 +32,13 @@
       "Bash(git push *)",
       "Bash(npx eslint *)",
       "Bash(curl -s http://localhost:3000/api/tree)",
-      "Bash(curl -s http://localhost:3000/api/file/_glossary.json)"
+      "Bash(curl -s http://localhost:3000/api/file/_glossary.json)",
+      "Bash(ssh root@168.119.231.157 'set -e *)",
+      "Bash(awk 'NR>=300 && NR<=340 { if \\(/useEffect/\\) {flag=1; print NR\": \"$0; getline; print \"  →  \"$0} else if \\(flag\\) print \"  →  \"$0; if \\(flag && /\\\\}, /\\) flag=0 }' /Users/max/work/code/hpp-study-buddy/src/components/editor.tsx)",
+      "Bash(git -C /Users/max/work/code/hpp-study-buddy status -s)",
+      "Bash(git -C /Users/max/work/code/hpp-study-buddy add src/app/page.tsx src/components/editor.tsx .claude/settings.local.json)",
+      "Bash(git -C /Users/max/work/code/hpp-study-buddy commit -m ' *)",
+      "Bash(git -C /Users/max/work/code/hpp-study-buddy push origin main)"
     ]
   }
 }
