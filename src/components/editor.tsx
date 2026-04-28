@@ -12,9 +12,10 @@ import Typography from "@tiptap/extension-typography";
 import TaskList from "@tiptap/extension-task-list";
 import TaskItem from "@tiptap/extension-task-item";
 import CodeBlockLowlight from "@tiptap/extension-code-block-lowlight";
+import { TableKit } from "@tiptap/extension-table";
 import { common, createLowlight } from "lowlight";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { List, ListOrdered } from "lucide-react";
+import { List, ListOrdered, Table as TableIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { GLOSSARY_PATH, EMPTY_GLOSSARY } from "@/lib/glossary";
 import { useGlossary, notifyGlossaryUpdated } from "@/lib/use-glossary";
@@ -203,6 +204,7 @@ export function Editor({
       TaskList,
       TaskItem.configure({ nested: true }),
       CodeBlockLowlight.configure({ lowlight }),
+      TableKit.configure({ table: { resizable: true } }),
       // eslint-disable-next-line react-hooks/refs -- getGlossary is read at PM apply time, not render
       GlossaryDecorations.configure({
         getGlossary: () =>
@@ -633,6 +635,21 @@ export function Editor({
                 aria-label="Numbered list"
               >
                 <ListOrdered className="w-4 h-4" />
+              </button>
+              <button
+                type="button"
+                className="px-2 py-1 rounded hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                onClick={() =>
+                  editor
+                    ?.chain()
+                    .focus()
+                    .insertTable({ rows: 3, cols: 3, withHeaderRow: true })
+                    .run()
+                }
+                title="Insert table"
+                aria-label="Insert table"
+              >
+                <TableIcon className="w-4 h-4" />
               </button>
             </>
           )}

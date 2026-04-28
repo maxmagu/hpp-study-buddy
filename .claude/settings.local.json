@@ -38,7 +38,9 @@
       "Bash(git -C /Users/max/work/code/hpp-study-buddy status -s)",
       "Bash(git -C /Users/max/work/code/hpp-study-buddy add src/app/page.tsx src/components/editor.tsx .claude/settings.local.json)",
       "Bash(git -C /Users/max/work/code/hpp-study-buddy commit -m ' *)",
-      "Bash(git -C /Users/max/work/code/hpp-study-buddy push origin main)"
+      "Bash(git -C /Users/max/work/code/hpp-study-buddy push origin main)",
+      "Read(//Users/max/work/code/vps/**)",
+      "Bash(bash deploy/hpp-study-buddy/deploy.sh)"
     ]
   }
 }
