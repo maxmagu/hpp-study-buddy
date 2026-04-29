@@ -24,6 +24,7 @@ import {
   SearchHighlight,
   searchHighlightPluginKey,
 } from "@/lib/search-highlight-extension";
+import { parseMarkdownTables } from "@/lib/markdown-table-paste";
 import {
   GlossaryDecorations,
   glossaryPluginKey,
@@ -139,6 +140,7 @@ export function Editor({
 
   const flushRef = useRef<() => Promise<void>>(async () => {});
   const lastSavedJsonRef = useRef<string | null>(null);
+  const editorRef = useRef<import("@tiptap/react").Editor | null>(null);
 
   const containerRef = useRef<HTMLDivElement | null>(null);
   const activeListRef = useRef<HTMLElement | null>(null);
@@ -222,6 +224,41 @@ export function Editor({
           "focus:outline-none py-10 px-12 min-h-full",
         ),
       },
+      handlePaste: (_view, event) => {
+        // If the clipboard already has HTML, let Tiptap's default parsing
+        // handle it (covers tables copied from rendered web pages).
+        const html = event.clipboardData?.getData("text/html");
+        if (html && html.trim().length > 0) return false;
+
+        const text = event.clipboardData?.getData("text/plain");
+        if (!text) return false;
+
+        const segments = parseMarkdownTables(text);
+        if (!segments.some((s) => s.kind === "table")) return false;
+
+        const editor = editorRef.current;
+        if (!editor) return false;
+
+        const lineToParagraph = (line: string): JSONContent =>
+          line
+            ? { type: "paragraph", content: [{ type: "text", text: line }] }
+            : { type: "paragraph" };
+
+        const fragments: JSONContent[] = [];
+        for (const seg of segments) {
+          if (seg.kind === "table") {
+            fragments.push(seg.node);
+          } else {
+            seg.value
+              .split(/\r?\n/)
+              .filter((l) => l.length > 0)
+              .forEach((l) => fragments.push(lineToParagraph(l)));
+          }
+        }
+
+        editor.chain().focus().insertContent(fragments).run();
+        return true;
+      },
     },
     onUpdate: ({ editor }) => {
       if (applyingContentRef.current) return;
@@ -303,6 +340,10 @@ export function Editor({
     // content changes, not on editable-flag toggles.
     editor.setEditable(!(recallMode || loading), false);
   }, [editor, recallMode, status]);
+
+  useEffect(() => {
+    editorRef.current = editor;
+  }, [editor]);
 
   // Force the glossary plugin to rebuild decorations when the glossary or
   // its enablement changes (no doc change has occurred to trigger it).
